@@ -395,14 +395,27 @@
     renderGrade(); updateStatus();
   }
 
+  // Reject GPS noise: fixes worse than this (m) and speeds above this (km/h) are dropped.
+  const MAX_ACCURACY_M=50, MAX_PLAUSIBLE_KMH=320, MIN_DT_S=0.3;
   function onGeo(pos){
     const c=pos.coords;
+    // Drop low-quality fixes outright — they're the source of teleport-sized jumps.
+    if(c.accuracy!=null && c.accuracy>MAX_ACCURACY_M){ return; }
+
     let kmh = c.speed!=null && c.speed>=0 ? c.speed*3.6 : null;
     if(kmh==null && lastPos){
       const d=haversine(lastPos.coords,c), dt=(pos.timestamp-lastPos.timestamp)/1000;
-      if(dt>0) kmh=(d/dt)*3.6;
+      // Need a meaningful time gap or a tiny dt inflates speed to absurd values.
+      if(dt>=MIN_DT_S) kmh=(d/dt)*3.6;
     }
-    if(lastPos) distance+=haversine(lastPos.coords,c);
+    // Ignore physically impossible speeds regardless of source (GPS glitches, cold fixes).
+    if(kmh!=null && kmh>MAX_PLAUSIBLE_KMH){ kmh=null; }
+
+    if(lastPos){
+      const step=haversine(lastPos.coords,c), dt=(pos.timestamp-lastPos.timestamp)/1000;
+      // Only count distance for plausible movement — skips jumps between bad fixes.
+      if(dt<=0 || (step/dt)*3.6<=MAX_PLAUSIBLE_KMH) distance+=step;
+    }
     lastPos=pos;
     if(kmh!=null){ kmh=Math.max(0,kmh); topSpeed=Math.max(topSpeed,kmh);
       $("speed").textContent=Math.round(kmh); setBar($("speedBar"),kmh/160*100); }
