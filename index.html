@@ -475,10 +475,12 @@
     $("report").classList.add("hidden");
     $("startBtn").classList.remove("hidden"); $("stopBtn").classList.add("hidden");
     score=100; renderGrade(); updateStatus();
+    $("evList").innerHTML='<div class="empty">No events yet.<br>Smooth driving keeps this clean.</div>';
+    $("evCnt").textContent="0 events";
     $("speed").textContent="0"; $("lon").textContent="0.00"; $("lat").textContent="0.00";
     $("smooth").textContent="100"; $("gNow").textContent="0.00"; $("gPeak").textContent="0.00 g peak";
     setBar($("speedBar"),0); setBar($("lonBar"),0); setBar($("latBar"),0); setBar($("smoothBar"),100);
-    $("gBall").style.transform="translate(-50%,-50%)";
+    const b=$("gBall"); b.style.transform="translate(-50%,-50%)"; b.style.background=""; b.style.boxShadow="";
   }
 
   /* ---------- Sharing: render branded scorecard ---------- */
