@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0f17">
+<title>DriveGrade — Driving Dynamics Analyzer</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#141b28; --panel2:#1c2636;
+    --txt:#e8eef7; --muted:#8798b0; --line:#243247;
+    --good:#33d17a; --warn:#f5c14e; --bad:#ff5c5c; --accent:#4c8bf5;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; min-height:100dvh; overscroll-behavior:none;
+  }
+  header{
+    padding:16px 18px 10px; text-align:center; border-bottom:1px solid var(--line);
+  }
+  header h1{margin:0; font-size:19px; letter-spacing:.5px}
+  header h1 span{color:var(--accent)}
+  header p{margin:4px 0 0; font-size:12px; color:var(--muted)}
+  main{flex:1; padding:16px; display:flex; flex-direction:column; gap:14px; max-width:520px; width:100%; margin:0 auto}
+
+  /* Grade dial */
+  .grade-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:20px;
+    padding:22px; display:flex; align-items:center; gap:20px;
+  }
+  .dial{position:relative; width:120px; height:120px; flex:0 0 auto}
+  .dial svg{transform:rotate(-90deg)}
+  .dial .val{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .dial .letter{font-size:44px; font-weight:800; line-height:1}
+  .dial .score{font-size:12px; color:var(--muted); margin-top:2px}
+  .grade-meta{flex:1}
+  .grade-meta .label{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px}
+  .grade-meta .status{font-size:18px; font-weight:700; margin-top:2px}
+  .grade-meta .sub{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
+
+  /* Live metrics */
+  .metrics{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .metric{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px;
+  }
+  .metric .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
+  .metric .v{font-size:26px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums}
+  .metric .v small{font-size:12px; color:var(--muted); font-weight:500}
+  .bar{height:6px; border-radius:4px; background:var(--panel2); margin-top:10px; overflow:hidden}
+  .bar > i{display:block; height:100%; width:0%; background:var(--good); transition:width .15s, background .2s}
+
+  /* Events */
+  .events{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 4px; flex:1; min-height:120px; overflow:auto}
+  .events h3{margin:8px 12px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
+  .ev{display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:14px; border-top:1px solid var(--line)}
+  .ev:first-of-type{border-top:none}
+  .ev .dot{width:8px; height:8px; border-radius:50%; flex:0 0 auto}
+  .ev .t{margin-left:auto; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums}
+  .empty{color:var(--muted); font-size:13px; text-align:center; padding:22px}
+
+  /* Buttons */
+  .actions{display:flex; gap:10px}
+  button{
+    flex:1; border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:700;
+    color:#fff; background:var(--accent); cursor:pointer; transition:transform .05s, opacity .2s;
+  }
+  button:active{transform:scale(.98)}
+  button.stop{background:var(--bad)}
+  button.ghost{background:var(--panel2); color:var(--txt)}
+  button:disabled{opacity:.4}
+
+  footer{padding:8px 16px 16px; text-align:center; color:var(--muted); font-size:11px}
+  .pill{display:inline-block; padding:2px 8px; border-radius:20px; background:var(--panel2); font-size:11px; color:var(--muted); margin-left:6px}
+  .hidden{display:none !important}
+
+  /* Summary modal */
+  .modal{position:fixed; inset:0; background:rgba(6,9,15,.82); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50}
+  .sheet{background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:24px; max-width:420px; width:100%}
+  .sheet h2{margin:0 0 4px; text-align:center}
+  .sheet .big{font-size:64px; font-weight:800; text-align:center; line-height:1.1}
+  .sheet .rows{margin:16px 0; display:flex; flex-direction:column; gap:2px}
+  .row{display:flex; justify-content:space-between; padding:10px 2px; border-top:1px solid var(--line); font-size:14px}
+  .row span:last-child{font-weight:700; font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<header>
+  <h1>Drive<span>Grade</span></h1>
+  <p>Real-time driving dynamics analyzer &amp; scorer</p>
+</header>
+
+<main>
+  <div class="grade-card">
+    <div class="dial">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#243247" stroke-width="10"></circle>
+        <circle id="dialArc" cx="60" cy="60" r="52" fill="none" stroke="#33d17a" stroke-width="10"
+                stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="val">
+        <div class="letter" id="gradeLetter">A</div>
+        <div class="score" id="gradeScore">100 pts</div>
+      </div>
+    </div>
+    <div class="grade-meta">
+      <div class="label">Live Grade</div>
+      <div class="status" id="statusText">Ready to drive</div>
+      <div class="sub" id="subText">Tap <b>Start</b>, then mount your phone and drive. We score smoothness of acceleration, braking, and cornering.</div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="k">Speed</div>
+      <div class="v"><span id="speed">0</span> <small>km/h</small></div>
+      <div class="bar"><i id="speedBar"></i></div>
+    </div>
+    <div class="metric">
+      <div class="k">Accel / Brake</div>
+      <div class="v"><span id="lon">0.00</span> <small>g</small></div>
+      <div class="bar"><i id="lonBar"></i></div>
+    </div>
+    <div class="metric">
+      <div class="k">Cornering</div>
+      <div class="v"><span id="lat">0.00</span> <small>g</small></div>
+      <div class="bar"><i id="latBar"></i></div>
+    </div>
+    <div class="metric">
+      <div class="k">Smoothness</div>
+      <div class="v"><span id="smooth">100</span><small>/100</small></div>
+      <div class="bar"><i id="smoothBar"></i></div>
+    </div>
+  </div>
+
+  <div class="events">
+    <h3>Event Log</h3>
+    <div id="evList"><div class="empty">No events yet — smooth driving keeps this empty.</div></div>
+  </div>
+
+  <div class="actions">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn" class="stop hidden">Finish trip</button>
+  </div>
+</main>
+
+<footer>
+  Uses your device motion &amp; GPS sensors. Nothing leaves your phone.
+  <span class="pill" id="sensorPill">sensors: idle</span>
+</footer>
+
+<div class="modal hidden" id="summary">
+  <div class="sheet">
+    <h2>Trip Report</h2>
+    <div class="big" id="sumLetter">A</div>
+    <div style="text-align:center;color:var(--muted);font-size:14px" id="sumScore">100 / 100</div>
+    <div class="rows">
+      <div class="row"><span>Duration</span><span id="sumDur">0:00</span></div>
+      <div class="row"><span>Distance</span><span id="sumDist">0.0 km</span></div>
+      <div class="row"><span>Top speed</span><span id="sumTop">0 km/h</span></div>
+      <div class="row"><span>Harsh acceleration</span><span id="sumAcc">0</span></div>
+      <div class="row"><span>Harsh braking</span><span id="sumBrk">0</span></div>
+      <div class="row"><span>Hard cornering</span><span id="sumCor">0</span></div>
+    </div>
+    <div class="actions">
+      <button class="ghost" id="closeSum">New trip</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const G = 9.80665;
+  const CIRC = 2 * Math.PI * 52; // dial circumference ~326.7
+
+  // Thresholds (in g). Tuned for phone-in-cupholder noise.
+  const TH = {
+    accel: 0.35,   // harsh acceleration
+    brake: 0.40,   // harsh braking
+    corner: 0.40,  // hard cornering
+  };
+  const PENALTY = { accel: 4, brake: 5, corner: 4, jerk: 2 };
+
+  let running = false;
+  let score = 100;
+  let smoothEMA = 100;
+  let counts = { accel:0, brake:0, corner:0 };
+  let startTime = 0, topSpeed = 0, distance = 0;
+  let lastPos = null, lastEventAt = 0, lastAccelMag = 0;
+  let gravity = { x:0, y:0, z:0 }; // low-pass filtered gravity
+  let motionHandler = null, geoId = null, demoTimer = null;
+
+  function fmtTime(ms){
+    const s = Math.floor(ms/1000);
+    return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+  }
+  function letterFor(sc){
+    if (sc>=93) return "A"; if (sc>=85) return "B";
+    if (sc>=75) return "C"; if (sc>=65) return "D"; return "F";
+  }
+  function colorFor(sc){
+    if (sc>=85) return getComputedStyle(document.documentElement).getPropertyValue("--good");
+    if (sc>=70) return getComputedStyle(document.documentElement).getPropertyValue("--warn");
+    return getComputedStyle(document.documentElement).getPropertyValue("--bad");
+  }
+
+  function renderGrade(){
+    const sc = Math.max(0, Math.round(score));
+    $("gradeLetter").textContent = letterFor(sc);
+    $("gradeScore").textContent = sc + " pts";
+    const col = colorFor(sc).trim();
+    $("gradeLetter").style.color = col;
+    const arc = $("dialArc");
+    arc.style.stroke = col;
+    arc.style.strokeDashoffset = (CIRC * (1 - sc/100)).toFixed(1);
+  }
+
+  function setBar(el, pct, col){
+    el.style.width = Math.min(100, Math.max(0, pct)) + "%";
+    if (col) el.style.background = col;
+  }
+
+  function logEvent(type, label, mag){
+    counts[type] = (counts[type]||0) + 1;
+    const list = $("evList");
+    const empty = list.querySelector(".empty");
+    if (empty) empty.remove();
+    const col = type==="corner" ? "var(--warn)" : "var(--bad)";
+    const div = document.createElement("div");
+    div.className = "ev";
+    div.innerHTML =
+      '<span class="dot" style="background:'+col+'"></span>' +
+      '<span>'+label+' <b>'+mag.toFixed(2)+'g</b></span>' +
+      '<span class="t">'+fmtTime(Date.now()-startTime)+'</span>';
+    list.insertBefore(div, list.firstChild);
+    while (list.children.length > 40) list.removeChild(list.lastChild);
+  }
+
+  function onMotion(e){
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if (!a || a.x == null) return;
+    // Low-pass to estimate gravity vector, subtract for linear accel.
+    const alpha = 0.85;
+    gravity.x = alpha*gravity.x + (1-alpha)*a.x;
+    gravity.y = alpha*gravity.y + (1-alpha)*a.y;
+    gravity.z = alpha*gravity.z + (1-alpha)*a.z;
+    const lx = (a.x - gravity.x)/G;
+    const ly = (a.y - gravity.y)/G;
+    const lz = (a.z - gravity.z)/G;
+
+    // Phone orientation-agnostic: horizontal plane magnitude split into
+    // longitudinal (drive axis) & lateral. Without heading we approximate:
+    // dominant horizontal axis = longitudinal, cross = lateral.
+    const lon = Math.abs(ly);          // fore/aft (portrait mount)
+    const lat = Math.abs(lx);          // side/side
+    const mag = Math.sqrt(lx*lx+ly*ly+lz*lz);
+
+    $("lon").textContent = lon.toFixed(2);
+    $("lat").textContent = lat.toFixed(2);
+    setBar($("lonBar"), lon/0.8*100, lon>TH.brake ? "var(--bad)" : "var(--good)");
+    setBar($("latBar"), lat/0.8*100, lat>TH.corner ? "var(--warn)" : "var(--good)");
+
+    const now = Date.now();
+    // Jerk: rapid change in accel magnitude
+    const jerk = Math.abs(mag - lastAccelMag);
+    lastAccelMag = mag;
+
+    if (now - lastEventAt > 700){ // debounce distinct events
+      let penalized = false;
+      if (ly < -TH.brake){ score -= PENALTY.brake; logEvent("brake","Harsh braking", lon); penalized=true; }
+      else if (ly > TH.accel){ score -= PENALTY.accel; logEvent("accel","Harsh acceleration", lon); penalized=true; }
+      if (lat > TH.corner){ score -= PENALTY.corner; logEvent("corner","Hard cornering", lat); penalized=true; }
+      if (penalized) lastEventAt = now;
+    }
+    if (jerk > 0.5) score -= PENALTY.jerk*0.25;
+
+    // Smoothness EMA: 100 when calm, drops with combined horizontal g.
+    const horiz = Math.min(1, Math.sqrt(lon*lon+lat*lat)/0.7);
+    smoothEMA = 0.92*smoothEMA + 0.08*(100 - horiz*100);
+    $("smooth").textContent = Math.round(smoothEMA);
+    setBar($("smoothBar"), smoothEMA, smoothEMA>70 ? "var(--good)" : smoothEMA>45 ? "var(--warn)" : "var(--bad)");
+
+    // gentle recovery so a clean stretch nudges score back up
+    if (score < 100) score += 0.004;
+    score = Math.max(0, Math.min(100, score));
+    renderGrade();
+    updateStatus();
+  }
+
+  function onGeo(pos){
+    const c = pos.coords;
+    let kmh = c.speed != null && c.speed >= 0 ? c.speed*3.6 : null;
+    if (kmh == null && lastPos){
+      const d = haversine(lastPos.coords, c);
+      const dt = (pos.timestamp - lastPos.timestamp)/1000;
+      if (dt > 0) kmh = (d/dt)*3.6;
+    }
+    if (lastPos){
+      distance += haversine(lastPos.coords, c);
+    }
+    lastPos = pos;
+    if (kmh != null){
+      kmh = Math.max(0, kmh);
+      topSpeed = Math.max(topSpeed, kmh);
+      $("speed").textContent = Math.round(kmh);
+      setBar($("speedBar"), kmh/160*100, "var(--accent)");
+    }
+  }
+
+  function haversine(a, b){
+    const R=6371000, toR=x=>x*Math.PI/180;
+    const dLat=toR(b.latitude-a.latitude), dLon=toR(b.longitude-a.longitude);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.latitude))*Math.cos(toR(b.latitude))*Math.sin(dLon/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+
+  function updateStatus(){
+    const sc = Math.round(score);
+    let txt, sub;
+    if (sc>=93){ txt="Excellent — smooth operator"; sub="Silky inputs. Keep it steady."; }
+    else if (sc>=85){ txt="Good driving"; sub="Minor bumps. Ease into brakes a touch."; }
+    else if (sc>=75){ txt="Fair — room to smooth out"; sub="Watch acceleration and cornering forces."; }
+    else if (sc>=65){ txt="Rough — aggressive inputs"; sub="Brake earlier, accelerate gradually."; }
+    else { txt="Harsh driving detected"; sub="Lots of hard events. Slow it down."; }
+    $("statusText").textContent = txt;
+    $("subText").textContent = sub;
+  }
+
+  async function start(){
+    // iOS 13+ needs explicit motion permission from a user gesture.
+    try{
+      if (typeof DeviceMotionEvent !== "undefined" &&
+          typeof DeviceMotionEvent.requestPermission === "function"){
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res !== "granted"){ alert("Motion access denied — grading needs it."); return; }
+      }
+    }catch(err){ /* non-iOS browsers throw; ignore */ }
+
+    running = true; score=100; smoothEMA=100; counts={accel:0,brake:0,corner:0};
+    startTime=Date.now(); topSpeed=0; distance=0; lastPos=null; lastEventAt=0;
+    $("evList").innerHTML = '<div class="empty">No events yet — smooth driving keeps this empty.</div>';
+    renderGrade(); updateStatus();
+
+    motionHandler = onMotion;
+    window.addEventListener("devicemotion", motionHandler, true);
+
+    if ("geolocation" in navigator){
+      geoId = navigator.geolocation.watchPosition(onGeo, ()=>{}, {
+        enableHighAccuracy:true, maximumAge:1000, timeout:8000
+      });
+    }
+    $("startBtn").classList.add("hidden");
+    $("stopBtn").classList.remove("hidden");
+    $("sensorPill").textContent = "sensors: live";
+    $("statusText").textContent = "Recording…";
+  }
+
+  function stop(){
+    running=false;
+    if (motionHandler) window.removeEventListener("devicemotion", motionHandler, true);
+    if (geoId != null) navigator.geolocation.clearWatch(geoId);
+    if (demoTimer){ clearInterval(demoTimer); demoTimer=null; }
+    $("sensorPill").textContent = "sensors: idle";
+    // Summary
+    const sc = Math.max(0, Math.round(score));
+    $("sumLetter").textContent = letterFor(sc);
+    $("sumLetter").style.color = colorFor(sc).trim();
+    $("sumScore").textContent = sc + " / 100";
+    $("sumDur").textContent = fmtTime(Date.now()-startTime);
+    $("sumDist").textContent = (distance/1000).toFixed(1) + " km";
+    $("sumTop").textContent = Math.round(topSpeed) + " km/h";
+    $("sumAcc").textContent = counts.accel;
+    $("sumBrk").textContent = counts.brake;
+    $("sumCor").textContent = counts.corner;
+    $("summary").classList.remove("hidden");
+  }
+
+  function reset(){
+    $("summary").classList.add("hidden");
+    $("startBtn").classList.remove("hidden");
+    $("stopBtn").classList.add("hidden");
+    score=100; renderGrade();
+    $("statusText").textContent="Ready to drive";
+    $("subText").textContent="Tap Start, then mount your phone and drive.";
+    $("speed").textContent="0"; $("lon").textContent="0.00"; $("lat").textContent="0.00"; $("smooth").textContent="100";
+    setBar($("speedBar"),0); setBar($("lonBar"),0); setBar($("latBar"),0); setBar($("smoothBar"),100);
+  }
+
+  $("startBtn").addEventListener("click", start);
+  $("stopBtn").addEventListener("click", stop);
+  $("closeSum").addEventListener("click", reset);
+
+  // Desktop fallback: no motion sensor -> demo simulation so the UI is testable.
+  window.addEventListener("load", () => {
+    renderGrade();
+    let sawMotion=false;
+    const probe = () => { sawMotion=true; window.removeEventListener("devicemotion", probe); };
+    window.addEventListener("devicemotion", probe);
+    setTimeout(() => {
+      if (!sawMotion && !("ontouchstart" in window)){
+        $("subText").innerHTML = "No motion sensor detected (desktop). <b>Start</b> runs a demo simulation.";
+        $("startBtn").addEventListener("click", () => {
+          if (demoTimer) return;
+          $("sensorPill").textContent="sensors: demo";
+          demoTimer=setInterval(()=>{
+            const t=Date.now()/1000;
+            const fake={ x:Math.sin(t*1.7)*3+ (Math.random()-.5), y:Math.cos(t*1.1)*3.5, z:9.8 };
+            onMotion({accelerationIncludingGravity:fake});
+            onGeo({coords:{latitude:0,longitude:0,speed:Math.abs(Math.sin(t*0.3))*30},timestamp:Date.now()});
+          }, 120);
+        }, {once:false});
+      }
+    }, 800);
+  });
+})();
+</script>
+</body>
+</html>
