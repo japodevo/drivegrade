@@ -192,6 +192,39 @@
   .egg .badge{display:inline-block; margin-top:16px; font-family:'JetBrains Mono',monospace; font-size:12px;
     color:var(--faint); border:1px solid var(--line); border-radius:20px; padding:7px 14px; background:var(--glass)}
   .egg .dismiss{margin-top:18px; font-size:11px; color:var(--faint); letter-spacing:.5px}
+
+  /* ---- header actions ---- */
+  .hactions{display:flex; align-items:center; gap:8px}
+  .iconbtn{width:38px; height:38px; flex:none; display:grid; place-items:center; border-radius:12px;
+    border:1px solid var(--line); background:var(--glass); backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px); color:var(--ink); cursor:pointer; padding:0}
+  .iconbtn svg{width:19px; height:19px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round}
+  .iconbtn:active{transform:scale(.92)}
+
+  /* ---- history ---- */
+  .sheet.tall{max-width:460px; max-height:88vh; display:flex; flex-direction:column; position:relative}
+  .sheet .close{position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--line); background:var(--glass); color:var(--ink); cursor:pointer; display:grid; place-items:center}
+  .sheet .close svg{width:15px; height:15px; stroke:currentColor; stroke-width:2.6; fill:none; stroke-linecap:round}
+  .hsummary{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:16px 0 4px}
+  .hsummary .box{background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:14px; padding:12px 8px; text-align:center}
+  .hsummary .box .n{font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700}
+  .hsummary .box .l{font-size:9.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--faint); margin-top:3px}
+  .hlist{overflow-y:auto; -webkit-overflow-scrolling:touch; margin:10px -4px 2px; padding:0 4px; flex:1}
+  .hitem{display:flex; align-items:center; gap:13px; padding:11px; border:1px solid var(--line);
+    border-radius:16px; background:rgba(255,255,255,.03); margin-bottom:9px; cursor:pointer}
+  .hitem:active{background:rgba(255,255,255,.06)}
+  .hitem .gr{width:44px; height:44px; flex:none; border-radius:12px; display:grid; place-items:center;
+    font-size:21px; font-weight:800; color:#05070d}
+  .hitem .mid{flex:1; min-width:0}
+  .hitem .mid .d{font-size:13.5px; font-weight:600}
+  .hitem .mid .s{font-size:11.5px; color:var(--muted); margin-top:3px; font-family:'JetBrains Mono',monospace;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .hitem .pts{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--faint); flex:none}
+  .hempty{text-align:center; color:var(--faint); font-size:13.5px; line-height:1.7; padding:44px 12px}
+  .hfoot{display:flex; gap:10px; margin-top:10px}
+  .hfoot button{flex:1}
+  .linkbtn{background:none; border:none; color:var(--faint); font-size:11.5px; cursor:pointer; padding:6px; margin:2px auto 0; display:block}
 </style>
 </head>
 <body>
@@ -203,7 +236,15 @@
     <span class="mark"><svg viewBox="0 0 24 24"><path d="M3 13l2-5a3 3 0 013-2h8a3 3 0 013 2l2 5"/><circle cx="7.5" cy="16" r="1.6"/><circle cx="16.5" cy="16" r="1.6"/><path d="M3 13h18v3a1 1 0 01-1 1h-1M5 17H4a1 1 0 01-1-1v-3"/></svg></span>
     Drive<b>Grade</b>
   </div>
-  <div class="live" id="livePill"><span class="led"></span><span id="liveTxt">idle</span></div>
+  <div class="hactions">
+    <button class="iconbtn" id="histBtn" aria-label="Drive history" title="History">
+      <svg viewBox="0 0 24 24"><path d="M3 3v6h6"/><path d="M3.5 9a9 9 0 1 0 2.3-3.4L3 9"/><path d="M12 8v4l3 2"/></svg>
+    </button>
+    <button class="iconbtn" id="shareAppBtn" aria-label="Share the app" title="Share app">
+      <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+    </button>
+    <div class="live" id="livePill"><span class="led"></span><span id="liveTxt">idle</span></div>
+  </div>
 </header>
 
 <main>
@@ -318,6 +359,24 @@
       <button class="ghost" id="saveBtn">Save Image</button>
       <button class="ghost" id="newBtn">New Trip</button>
     </div>
+  </div>
+</div>
+
+<!-- Drive history -->
+<div class="modal hidden" id="history">
+  <div class="sheet tall">
+    <button class="close" id="histClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+    <div class="hd">Drive History</div>
+    <div class="hsummary">
+      <div class="box"><div class="n" id="hCount">0</div><div class="l">Drives</div></div>
+      <div class="box"><div class="n" id="hAvg">—</div><div class="l">Avg Grade</div></div>
+      <div class="box"><div class="n" id="hBest">—</div><div class="l">Best</div></div>
+    </div>
+    <div class="hlist" id="hList"></div>
+    <div class="hfoot">
+      <button id="inviteBtn">Invite a Friend</button>
+    </div>
+    <button class="linkbtn" id="clearHist">Clear history</button>
   </div>
 </div>
 
@@ -523,6 +582,7 @@
     $("rAcc").textContent=counts.accel; $("rBrk").textContent=counts.brake;
     lastReport={sc,dur:fmtTime(Date.now()-startTime),dist:(distance/1000).toFixed(1),
                 top:Math.round(topSpeed),peak:peakG.toFixed(2),acc:counts.accel,brk:counts.brake,cor:counts.corner};
+    saveTrip({...lastReport, ts:Date.now()});
     $("report").classList.remove("hidden");
   }
   function newTrip(){
@@ -635,6 +695,84 @@
     toastT=setTimeout(()=>{ el.style.display="none"; },2200);
   }
 
+  /* ---------- Drive history (stored on-device) ---------- */
+  const HKEY="drivegrade.history";
+  function loadHistory(){
+    try{ const a=JSON.parse(localStorage.getItem(HKEY)); return Array.isArray(a)?a:[]; }
+    catch(_){ return []; }
+  }
+  function saveTrip(rec){
+    try{
+      const h=loadHistory();
+      h.unshift(rec);
+      if(h.length>50) h.length=50;      // keep the 50 most recent
+      localStorage.setItem(HKEY, JSON.stringify(h));
+    }catch(_){}                          // private mode / quota — fail silently
+  }
+  function fmtWhen(ts){
+    const d=new Date(ts), now=new Date();
+    const time=d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    if(d.toDateString()===now.toDateString()) return "Today · "+time;
+    const y=new Date(now); y.setDate(now.getDate()-1);
+    if(d.toDateString()===y.toDateString()) return "Yesterday · "+time;
+    return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" · "+time;
+  }
+  function renderHistory(){
+    const h=loadHistory();
+    $("hCount").textContent=h.length;
+    if(h.length){
+      const avg=Math.round(h.reduce((s,t)=>s+t.sc,0)/h.length);
+      $("hAvg").textContent=letterFor(avg);
+      $("hBest").textContent=letterFor(Math.max(...h.map(t=>t.sc)));
+    }else{ $("hAvg").textContent="—"; $("hBest").textContent="—"; }
+    const list=$("hList");
+    if(!h.length){
+      list.innerHTML='<div class="hempty">No drives logged yet.<br>Finish a trip and it lands here — watch how your grade trends over time.</div>';
+      return;
+    }
+    list.innerHTML="";
+    h.forEach(t=>{
+      const [c1,c2]=gradeGrad(t.sc);
+      const row=document.createElement("div"); row.className="hitem";
+      row.innerHTML=
+        `<div class="gr" style="background:linear-gradient(135deg,${c1},${c2})">${letterFor(t.sc)}</div>`+
+        `<div class="mid"><div class="d">${fmtWhen(t.ts)}</div>`+
+        `<div class="s">${t.dist} km · ${t.top} km/h · ${t.peak}g · ${t.dur}</div></div>`+
+        `<div class="pts">${t.sc}</div>`;
+      row.addEventListener("click",()=>{ lastReport=t; closeHistory(); showReport(t); });
+      list.appendChild(row);
+    });
+  }
+  function showReport(r){
+    const sc=r.sc;
+    paintDial($("repLetter"),$("repPts"),$("repArc"),REP,sc,sc+" / 100");
+    $("repVerdict").textContent=verdictFor(sc);
+    $("rDur").textContent=r.dur;
+    $("rDist").innerHTML=r.dist+' <small>km</small>';
+    $("rTop").innerHTML=r.top+' <small>km/h</small>';
+    $("rPeak").innerHTML=r.peak+' <small>g</small>';
+    $("rAcc").textContent=r.acc; $("rBrk").textContent=r.brk;
+    $("report").classList.remove("hidden");
+  }
+  function openHistory(){ renderHistory(); $("history").classList.remove("hidden"); }
+  function closeHistory(){ $("history").classList.add("hidden"); }
+  function clearHistory(){
+    if(!loadHistory().length){ toast("History is already empty"); return; }
+    localStorage.removeItem(HKEY); renderHistory(); toast("Drive history cleared");
+  }
+
+  /* ---------- Share the app with friends ---------- */
+  async function shareApp(){
+    const url="https://japodevo.github.io/drivegrade/";
+    const text="Grade the smoothness of your driving with DriveGrade 🏎️";
+    if(navigator.share){
+      try{ await navigator.share({title:"DriveGrade", text, url}); return; }
+      catch(err){ if(err&&err.name==="AbortError") return; }
+    }
+    try{ await navigator.clipboard.writeText(url); toast("Link copied — send it to your friends"); return; }catch(_){}
+    window.prompt("Copy this link to share DriveGrade:", url);
+  }
+
   /* ---------- wire up ---------- */
   let demoMode=false;
   $("startBtn").addEventListener("click",start);
@@ -642,6 +780,12 @@
   $("newBtn").addEventListener("click",newTrip);
   $("shareBtn").addEventListener("click",shareTrip);
   $("saveBtn").addEventListener("click",()=>saveImage());
+  $("histBtn").addEventListener("click",openHistory);
+  $("histClose").addEventListener("click",closeHistory);
+  $("history").addEventListener("click",e=>{ if(e.target===$("history")) closeHistory(); });
+  $("clearHist").addEventListener("click",clearHistory);
+  $("shareAppBtn").addEventListener("click",shareApp);
+  $("inviteBtn").addEventListener("click",shareApp);
 
   /* ---------- easter egg ---------- */
   (function(){
