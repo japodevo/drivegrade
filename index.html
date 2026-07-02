@@ -2,422 +2,611 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0b0f17">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>DriveGrade — Driving Dynamics Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0f17; --panel:#141b28; --panel2:#1c2636;
-    --txt:#e8eef7; --muted:#8798b0; --line:#243247;
-    --good:#33d17a; --warn:#f5c14e; --bad:#ff5c5c; --accent:#4c8bf5;
+    --bg:#05070d; --ink:#eaf2ff; --muted:#8ea2c4; --faint:#5a6b8c;
+    --line:rgba(140,170,220,.14); --glass:rgba(18,26,42,.55); --glass2:rgba(26,36,56,.6);
+    --good:#22e39a; --warn:#ffcb47; --bad:#ff4d6d; --cy:#38bdf8; --vi:#8b5cf6;
+    --shadow:0 20px 60px -20px rgba(0,0,0,.8);
+    font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0; height:100%}
   body{
-    background:var(--bg); color:var(--txt);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    display:flex; flex-direction:column; min-height:100dvh; overscroll-behavior:none;
+    background:var(--bg); color:var(--ink); min-height:100dvh;
+    overflow-x:hidden; overscroll-behavior:none;
+    display:flex; flex-direction:column; position:relative;
   }
+  /* ---- Ambient background layers ---- */
+  .bg{position:fixed; inset:0; z-index:-2; overflow:hidden}
+  .bg::before,.bg::after{content:""; position:absolute; border-radius:50%; filter:blur(90px); opacity:.55}
+  .bg::before{width:60vw; height:60vw; left:-10vw; top:-10vw;
+    background:radial-gradient(circle,#1e63ff 0%,transparent 65%); animation:drift1 18s ease-in-out infinite}
+  .bg::after{width:55vw; height:55vw; right:-12vw; bottom:-8vh;
+    background:radial-gradient(circle,#8b5cf6 0%,transparent 65%); animation:drift2 22s ease-in-out infinite}
+  .grid{position:fixed; inset:0; z-index:-1;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:44px 44px; mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 78%);
+    -webkit-mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 78%); opacity:.5}
+  @keyframes drift1{50%{transform:translate(8vw,6vh) scale(1.1)}}
+  @keyframes drift2{50%{transform:translate(-6vw,-5vh) scale(1.08)}}
+
   header{
-    padding:16px 18px 10px; text-align:center; border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top) + 16px) 20px 12px;
+    display:flex; align-items:center; justify-content:space-between;
   }
-  header h1{margin:0; font-size:19px; letter-spacing:.5px}
-  header h1 span{color:var(--accent)}
-  header p{margin:4px 0 0; font-size:12px; color:var(--muted)}
-  main{flex:1; padding:16px; display:flex; flex-direction:column; gap:14px; max-width:520px; width:100%; margin:0 auto}
-
-  /* Grade dial */
-  .grade-card{
-    background:var(--panel); border:1px solid var(--line); border-radius:20px;
-    padding:22px; display:flex; align-items:center; gap:20px;
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:20px; letter-spacing:.4px}
+  .brand .mark{
+    width:30px; height:30px; border-radius:9px; display:grid; place-items:center;
+    background:linear-gradient(135deg,var(--cy),var(--vi)); box-shadow:0 6px 18px -4px var(--cy);
   }
-  .dial{position:relative; width:120px; height:120px; flex:0 0 auto}
-  .dial svg{transform:rotate(-90deg)}
-  .dial .val{
-    position:absolute; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center;
+  .brand .mark svg{width:18px; height:18px; stroke:#05070d; stroke-width:2.4; fill:none}
+  .brand b{background:linear-gradient(90deg,var(--cy),var(--vi)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .live{
+    display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted);
+    padding:6px 11px; border:1px solid var(--line); border-radius:20px; background:var(--glass); backdrop-filter:blur(12px);
   }
-  .dial .letter{font-size:44px; font-weight:800; line-height:1}
-  .dial .score{font-size:12px; color:var(--muted); margin-top:2px}
-  .grade-meta{flex:1}
-  .grade-meta .label{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px}
-  .grade-meta .status{font-size:18px; font-weight:700; margin-top:2px}
-  .grade-meta .sub{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
+  .live .led{width:8px; height:8px; border-radius:50%; background:var(--faint); transition:.3s}
+  .live.on .led{background:var(--good); box-shadow:0 0 0 0 rgba(34,227,154,.6); animation:pulse 1.6s infinite}
+  .live.demo .led{background:var(--warn)}
+  @keyframes pulse{70%{box-shadow:0 0 0 8px rgba(34,227,154,0)}}
 
-  /* Live metrics */
-  .metrics{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  .metric{
-    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px;
+  main{flex:1; width:100%; max-width:540px; margin:0 auto; padding:8px 16px 20px;
+    display:flex; flex-direction:column; gap:14px}
+
+  .card{
+    background:var(--glass); border:1px solid var(--line); border-radius:22px;
+    backdrop-filter:blur(16px) saturate(1.2); -webkit-backdrop-filter:blur(16px) saturate(1.2);
+    box-shadow:var(--shadow);
   }
-  .metric .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
-  .metric .v{font-size:26px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums}
-  .metric .v small{font-size:12px; color:var(--muted); font-weight:500}
-  .bar{height:6px; border-radius:4px; background:var(--panel2); margin-top:10px; overflow:hidden}
-  .bar > i{display:block; height:100%; width:0%; background:var(--good); transition:width .15s, background .2s}
 
-  /* Events */
-  .events{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 4px; flex:1; min-height:120px; overflow:auto}
-  .events h3{margin:8px 12px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
-  .ev{display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:14px; border-top:1px solid var(--line)}
-  .ev:first-of-type{border-top:none}
-  .ev .dot{width:8px; height:8px; border-radius:50%; flex:0 0 auto}
-  .ev .t{margin-left:auto; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums}
-  .empty{color:var(--muted); font-size:13px; text-align:center; padding:22px}
+  /* ---- Hero: grade dial ---- */
+  .hero{padding:22px; display:flex; align-items:center; gap:18px}
+  .dial{position:relative; width:132px; height:132px; flex:0 0 auto}
+  .dial svg{transform:rotate(-90deg); overflow:visible}
+  .dial .core{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .dial .letter{font-size:52px; font-weight:700; line-height:.9; letter-spacing:-1px;
+    background:linear-gradient(135deg,var(--good),var(--cy)); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 4px 14px rgba(34,227,154,.35)); transition:.4s}
+  .dial .pts{font-size:12px; color:var(--muted); margin-top:3px; font-family:'JetBrains Mono',monospace}
+  .hero-meta{flex:1; min-width:0}
+  .hero-meta .tag{font-size:11px; letter-spacing:2px; color:var(--faint); text-transform:uppercase}
+  .hero-meta .status{font-size:19px; font-weight:600; margin-top:3px; line-height:1.25}
+  .hero-meta .sub{font-size:12.5px; color:var(--muted); margin-top:9px; line-height:1.55}
 
-  /* Buttons */
-  .actions{display:flex; gap:10px}
+  /* ---- G-force meter ---- */
+  .grow{display:grid; grid-template-columns:auto 1fr; gap:16px; padding:18px; align-items:center}
+  .gmeter{position:relative; width:132px; height:132px; flex:0 0 auto}
+  .gmeter svg{position:absolute; inset:0}
+  .gmeter .ball{position:absolute; width:20px; height:20px; border-radius:50%; left:50%; top:50%;
+    transform:translate(-50%,-50%); background:radial-gradient(circle at 35% 30%,#eaffff,var(--cy));
+    box-shadow:0 0 14px 2px var(--cy), 0 0 0 1px rgba(255,255,255,.6) inset;
+    transition:transform .08s linear, background .2s, box-shadow .2s}
+  .gmeter .peak{position:absolute; inset:0; display:flex; align-items:flex-end; justify-content:center; padding-bottom:6px;
+    font-size:10px; color:var(--faint); font-family:'JetBrains Mono',monospace; letter-spacing:.5px}
+  .gcopy .tag{font-size:11px; letter-spacing:2px; color:var(--faint); text-transform:uppercase}
+  .gcopy .val{font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:700; margin-top:2px}
+  .gcopy .val small{font-size:13px; color:var(--muted)}
+  .gcopy .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5}
+
+  /* ---- Metrics ---- */
+  .metrics{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .tile{padding:15px 15px 16px}
+  .tile .top{display:flex; align-items:center; gap:8px; color:var(--muted)}
+  .tile .top svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.9}
+  .tile .top span{font-size:11px; letter-spacing:1px; text-transform:uppercase}
+  .tile .num{font-family:'JetBrains Mono',monospace; font-size:27px; font-weight:700; margin-top:8px; letter-spacing:-.5px}
+  .tile .num small{font-size:12px; color:var(--faint); font-weight:500}
+  .track{height:6px; border-radius:5px; background:rgba(255,255,255,.06); margin-top:11px; overflow:hidden}
+  .track > i{display:block; height:100%; width:0%; border-radius:5px;
+    background:linear-gradient(90deg,var(--good),var(--cy)); transition:width .18s ease, background .25s}
+
+  /* ---- Events ---- */
+  .events{padding:6px 4px; flex:1; min-height:118px; max-height:34vh; overflow:auto}
+  .events h3{margin:12px 14px 8px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--faint);
+    display:flex; align-items:center; justify-content:space-between}
+  .events h3 .cnt{font-family:'JetBrains Mono',monospace; color:var(--muted)}
+  .ev{display:flex; align-items:center; gap:11px; padding:10px 14px; font-size:14px; animation:slideIn .3s ease}
+  .ev + .ev{border-top:1px solid var(--line)}
+  .ev .chip{width:26px; height:26px; border-radius:8px; display:grid; place-items:center; flex:0 0 auto}
+  .ev .chip svg{width:15px; height:15px; stroke:#05070d; stroke-width:2.2; fill:none}
+  .ev .g{margin-left:auto; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px}
+  .ev .t{color:var(--faint); font-size:11px; font-family:'JetBrains Mono',monospace; width:44px; text-align:right}
+  @keyframes slideIn{from{opacity:0; transform:translateX(-10px)}}
+  .empty{color:var(--faint); font-size:13px; text-align:center; padding:26px 20px; line-height:1.6}
+
+  /* ---- Actions ---- */
+  .actions{display:flex; gap:12px; padding-bottom:env(safe-area-inset-bottom)}
   button{
-    flex:1; border:none; border-radius:14px; padding:16px; font-size:16px; font-weight:700;
-    color:#fff; background:var(--accent); cursor:pointer; transition:transform .05s, opacity .2s;
+    flex:1; border:none; border-radius:16px; padding:17px; font-size:16px; font-weight:700; cursor:pointer;
+    font-family:inherit; color:#05070d; letter-spacing:.3px; transition:transform .06s, filter .2s, opacity .2s;
+    background:linear-gradient(135deg,var(--cy),var(--vi)); box-shadow:0 12px 30px -10px var(--cy);
   }
-  button:active{transform:scale(.98)}
-  button.stop{background:var(--bad)}
-  button.ghost{background:var(--panel2); color:var(--txt)}
+  button:active{transform:scale(.97)}
+  button.stop{background:linear-gradient(135deg,#ff6b81,var(--bad)); box-shadow:0 12px 30px -10px var(--bad); color:#fff}
+  button.ghost{background:var(--glass2); color:var(--ink); border:1px solid var(--line); box-shadow:none; backdrop-filter:blur(12px)}
   button:disabled{opacity:.4}
 
-  footer{padding:8px 16px 16px; text-align:center; color:var(--muted); font-size:11px}
-  .pill{display:inline-block; padding:2px 8px; border-radius:20px; background:var(--panel2); font-size:11px; color:var(--muted); margin-left:6px}
+  footer{padding:6px 18px calc(env(safe-area-inset-bottom) + 14px); text-align:center; color:var(--faint); font-size:11px}
+
   .hidden{display:none !important}
 
-  /* Summary modal */
-  .modal{position:fixed; inset:0; background:rgba(6,9,15,.82); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50}
-  .sheet{background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:24px; max-width:420px; width:100%}
-  .sheet h2{margin:0 0 4px; text-align:center}
-  .sheet .big{font-size:64px; font-weight:800; text-align:center; line-height:1.1}
-  .sheet .rows{margin:16px 0; display:flex; flex-direction:column; gap:2px}
-  .row{display:flex; justify-content:space-between; padding:10px 2px; border-top:1px solid var(--line); font-size:14px}
-  .row span:last-child{font-weight:700; font-variant-numeric:tabular-nums}
+  /* ---- Trip report ---- */
+  .modal{position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:18px;
+    background:rgba(3,5,10,.75); backdrop-filter:blur(8px); animation:fade .3s}
+  @keyframes fade{from{opacity:0}}
+  .sheet{width:100%; max-width:420px; border-radius:26px; padding:24px 22px;
+    background:linear-gradient(180deg,var(--glass2),rgba(10,14,24,.85)); border:1px solid var(--line);
+    box-shadow:var(--shadow); animation:pop .35s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes pop{from{opacity:0; transform:translateY(20px) scale(.96)}}
+  .sheet .hd{text-align:center; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--faint)}
+  .sheet .rep-dial{display:flex; justify-content:center; margin:10px 0 4px}
+  .rep-dial{position:relative; width:150px; height:150px}
+  .rep-dial svg{transform:rotate(-90deg); overflow:visible}
+  .rep-dial .core{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .rep-dial .letter{font-size:64px; font-weight:700; line-height:.9;
+    background:linear-gradient(135deg,var(--good),var(--cy)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .rep-dial .pts{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin-top:2px}
+  .verdict{text-align:center; font-size:16px; font-weight:600; margin:2px 0 14px}
+  .rows{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px}
+  .stat{background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:14px; padding:12px 13px}
+  .stat .k{font-size:10.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--faint)}
+  .stat .v{font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; margin-top:3px}
+  .stat .v small{font-size:11px; color:var(--faint)}
+  .toast{position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 26px); transform:translateX(-50%);
+    background:var(--glass2); border:1px solid var(--line); color:var(--ink); padding:11px 18px; border-radius:14px;
+    font-size:13px; backdrop-filter:blur(14px); box-shadow:var(--shadow); z-index:60; animation:fade .25s}
 </style>
 </head>
 <body>
+<div class="bg"></div>
+<div class="grid"></div>
+
 <header>
-  <h1>Drive<span>Grade</span></h1>
-  <p>Real-time driving dynamics analyzer &amp; scorer</p>
+  <div class="brand">
+    <span class="mark"><svg viewBox="0 0 24 24"><path d="M3 13l2-5a3 3 0 013-2h8a3 3 0 013 2l2 5"/><circle cx="7.5" cy="16" r="1.6"/><circle cx="16.5" cy="16" r="1.6"/><path d="M3 13h18v3a1 1 0 01-1 1h-1M5 17H4a1 1 0 01-1-1v-3"/></svg></span>
+    Drive<b>Grade</b>
+  </div>
+  <div class="live" id="livePill"><span class="led"></span><span id="liveTxt">idle</span></div>
 </header>
 
 <main>
-  <div class="grade-card">
+  <!-- Hero grade -->
+  <section class="card hero">
     <div class="dial">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="52" fill="none" stroke="#243247" stroke-width="10"></circle>
-        <circle id="dialArc" cx="60" cy="60" r="52" fill="none" stroke="#33d17a" stroke-width="10"
-                stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="0"></circle>
+      <svg width="132" height="132" viewBox="0 0 132 132">
+        <defs>
+          <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#22e39a"/><stop offset="1" stop-color="#38bdf8"/>
+          </linearGradient>
+          <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <circle cx="66" cy="66" r="58" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="11"/>
+        <circle id="arc" cx="66" cy="66" r="58" fill="none" stroke="url(#arcGrad)" stroke-width="11"
+                stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="0" filter="url(#glow)"/>
       </svg>
-      <div class="val">
-        <div class="letter" id="gradeLetter">A</div>
-        <div class="score" id="gradeScore">100 pts</div>
-      </div>
+      <div class="core"><div class="letter" id="gLetter">A</div><div class="pts" id="gPts">100 PTS</div></div>
     </div>
-    <div class="grade-meta">
-      <div class="label">Live Grade</div>
+    <div class="hero-meta">
+      <div class="tag">Live Grade</div>
       <div class="status" id="statusText">Ready to drive</div>
-      <div class="sub" id="subText">Tap <b>Start</b>, then mount your phone and drive. We score smoothness of acceleration, braking, and cornering.</div>
+      <div class="sub" id="subText">Tap <b>Start</b>, mount your phone upright, and drive. We score the smoothness of every input.</div>
     </div>
-  </div>
+  </section>
 
-  <div class="metrics">
-    <div class="metric">
-      <div class="k">Speed</div>
-      <div class="v"><span id="speed">0</span> <small>km/h</small></div>
-      <div class="bar"><i id="speedBar"></i></div>
+  <!-- G-force meter -->
+  <section class="card grow">
+    <div class="gmeter">
+      <svg width="132" height="132" viewBox="0 0 132 132">
+        <circle cx="66" cy="66" r="58" fill="rgba(255,255,255,.02)" stroke="rgba(255,255,255,.08)"/>
+        <circle cx="66" cy="66" r="39" fill="none" stroke="rgba(255,255,255,.07)"/>
+        <circle cx="66" cy="66" r="20" fill="none" stroke="rgba(255,255,255,.07)"/>
+        <line x1="66" y1="6" x2="66" y2="126" stroke="rgba(255,255,255,.06)"/>
+        <line x1="6" y1="66" x2="126" y2="66" stroke="rgba(255,255,255,.06)"/>
+      </svg>
+      <div class="ball" id="gBall"></div>
+      <div class="peak" id="gPeak">0.00 g peak</div>
     </div>
-    <div class="metric">
-      <div class="k">Accel / Brake</div>
-      <div class="v"><span id="lon">0.00</span> <small>g</small></div>
-      <div class="bar"><i id="lonBar"></i></div>
+    <div class="gcopy">
+      <div class="tag">G-Force</div>
+      <div class="val"><span id="gNow">0.00</span> <small>g now</small></div>
+      <div class="hint">The ball tracks combined lateral &amp; longitudinal force in real time — keep it near center for a smooth ride.</div>
     </div>
-    <div class="metric">
-      <div class="k">Cornering</div>
-      <div class="v"><span id="lat">0.00</span> <small>g</small></div>
-      <div class="bar"><i id="latBar"></i></div>
-    </div>
-    <div class="metric">
-      <div class="k">Smoothness</div>
-      <div class="v"><span id="smooth">100</span><small>/100</small></div>
-      <div class="bar"><i id="smoothBar"></i></div>
-    </div>
-  </div>
+  </section>
 
-  <div class="events">
-    <h3>Event Log</h3>
-    <div id="evList"><div class="empty">No events yet — smooth driving keeps this empty.</div></div>
-  </div>
+  <!-- Metrics -->
+  <section class="metrics">
+    <div class="card tile">
+      <div class="top"><svg viewBox="0 0 24 24"><path d="M12 12l4-4"/><circle cx="12" cy="13" r="8"/></svg><span>Speed</span></div>
+      <div class="num"><span id="speed">0</span> <small>km/h</small></div>
+      <div class="track"><i id="speedBar" style="background:linear-gradient(90deg,var(--cy),var(--vi))"></i></div>
+    </div>
+    <div class="card tile">
+      <div class="top"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>Accel / Brake</span></div>
+      <div class="num"><span id="lon">0.00</span> <small>g</small></div>
+      <div class="track"><i id="lonBar"></i></div>
+    </div>
+    <div class="card tile">
+      <div class="top"><svg viewBox="0 0 24 24"><path d="M6 19V9a6 6 0 0112 0M18 9l3 3M18 9l-3 3"/></svg><span>Cornering</span></div>
+      <div class="num"><span id="lat">0.00</span> <small>g</small></div>
+      <div class="track"><i id="latBar"></i></div>
+    </div>
+    <div class="card tile">
+      <div class="top"><svg viewBox="0 0 24 24"><path d="M3 12s3-7 9-7 9 7 9 7-3 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="2.5"/></svg><span>Smoothness</span></div>
+      <div class="num"><span id="smooth">100</span><small>/100</small></div>
+      <div class="track"><i id="smoothBar" style="width:100%"></i></div>
+    </div>
+  </section>
+
+  <!-- Event log -->
+  <section class="card events">
+    <h3>Event Log <span class="cnt" id="evCnt">0 events</span></h3>
+    <div id="evList"><div class="empty">No events yet.<br>Smooth driving keeps this clean.</div></div>
+  </section>
 
   <div class="actions">
-    <button id="startBtn">Start</button>
-    <button id="stopBtn" class="stop hidden">Finish trip</button>
+    <button id="startBtn">Start Trip</button>
+    <button id="stopBtn" class="stop hidden">Finish Trip</button>
   </div>
 </main>
 
-<footer>
-  Uses your device motion &amp; GPS sensors. Nothing leaves your phone.
-  <span class="pill" id="sensorPill">sensors: idle</span>
-</footer>
+<footer>Motion &amp; GPS processed on-device · nothing is uploaded</footer>
 
-<div class="modal hidden" id="summary">
+<!-- Trip report -->
+<div class="modal hidden" id="report">
   <div class="sheet">
-    <h2>Trip Report</h2>
-    <div class="big" id="sumLetter">A</div>
-    <div style="text-align:center;color:var(--muted);font-size:14px" id="sumScore">100 / 100</div>
+    <div class="hd">Trip Report</div>
+    <div class="rep-dial">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12"/>
+        <circle id="repArc" cx="75" cy="75" r="66" fill="none" stroke="url(#arcGrad)" stroke-width="12"
+                stroke-linecap="round" stroke-dasharray="414.7" stroke-dashoffset="0"/>
+      </svg>
+      <div class="core"><div class="letter" id="repLetter">A</div><div class="pts" id="repPts">100 / 100</div></div>
+    </div>
+    <div class="verdict" id="repVerdict">Excellent drive</div>
     <div class="rows">
-      <div class="row"><span>Duration</span><span id="sumDur">0:00</span></div>
-      <div class="row"><span>Distance</span><span id="sumDist">0.0 km</span></div>
-      <div class="row"><span>Top speed</span><span id="sumTop">0 km/h</span></div>
-      <div class="row"><span>Harsh acceleration</span><span id="sumAcc">0</span></div>
-      <div class="row"><span>Harsh braking</span><span id="sumBrk">0</span></div>
-      <div class="row"><span>Hard cornering</span><span id="sumCor">0</span></div>
+      <div class="stat"><div class="k">Duration</div><div class="v" id="rDur">0:00</div></div>
+      <div class="stat"><div class="k">Distance</div><div class="v" id="rDist">0.0 <small>km</small></div></div>
+      <div class="stat"><div class="k">Top Speed</div><div class="v" id="rTop">0 <small>km/h</small></div></div>
+      <div class="stat"><div class="k">Peak G</div><div class="v" id="rPeak">0.00 <small>g</small></div></div>
+      <div class="stat"><div class="k">Harsh Accel</div><div class="v" id="rAcc">0</div></div>
+      <div class="stat"><div class="k">Harsh Brake</div><div class="v" id="rBrk">0</div></div>
+    </div>
+    <div class="actions" style="margin-bottom:10px">
+      <button id="shareBtn">Share Score</button>
     </div>
     <div class="actions">
-      <button class="ghost" id="closeSum">New trip</button>
+      <button class="ghost" id="saveBtn">Save Image</button>
+      <button class="ghost" id="newBtn">New Trip</button>
     </div>
   </div>
 </div>
+
+<canvas id="cardCanvas" width="1080" height="1350" style="display:none"></canvas>
 
 <script>
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
   const G = 9.80665;
-  const CIRC = 2 * Math.PI * 52; // dial circumference ~326.7
+  const DIAL = 364.4, REP = 414.7; // dial circumferences
 
-  // Thresholds (in g). Tuned for phone-in-cupholder noise.
-  const TH = {
-    accel: 0.35,   // harsh acceleration
-    brake: 0.40,   // harsh braking
-    corner: 0.40,  // hard cornering
-  };
-  const PENALTY = { accel: 4, brake: 5, corner: 4, jerk: 2 };
+  const TH = { accel:0.35, brake:0.40, corner:0.40 };
+  const PEN = { accel:4, brake:5, corner:4, jerk:2 };
 
-  let running = false;
-  let score = 100;
-  let smoothEMA = 100;
-  let counts = { accel:0, brake:0, corner:0 };
-  let startTime = 0, topSpeed = 0, distance = 0;
-  let lastPos = null, lastEventAt = 0, lastAccelMag = 0;
-  let gravity = { x:0, y:0, z:0 }; // low-pass filtered gravity
-  let motionHandler = null, geoId = null, demoTimer = null;
+  let running=false, score=100, smoothEMA=100;
+  let counts={accel:0,brake:0,corner:0};
+  let startTime=0, topSpeed=0, distance=0, peakG=0;
+  let lastPos=null, lastEventAt=0, lastMag=0;
+  let gravity={x:0,y:0,z:0};
+  let motionHandler=null, geoId=null, demoTimer=null;
 
-  function fmtTime(ms){
-    const s = Math.floor(ms/1000);
-    return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+  const fmtTime = ms => { const s=Math.floor(ms/1000); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); };
+  const letterFor = sc => sc>=93?"A":sc>=85?"B":sc>=75?"C":sc>=65?"D":"F";
+  // gradient stops per grade band (for text + canvas)
+  const gradeGrad = sc => sc>=85?["#22e39a","#38bdf8"] : sc>=75?["#38bdf8","#8b5cf6"] :
+                          sc>=65?["#ffcb47","#ff9f43"] : ["#ff6b81","#ff4d6d"];
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  function paintDial(letterEl, ptsEl, arcEl, circ, sc, ptsTxt){
+    const [c1,c2]=gradeGrad(sc);
+    letterEl.textContent=letterFor(sc);
+    letterEl.style.background=`linear-gradient(135deg,${c1},${c2})`;
+    letterEl.style.webkitBackgroundClip="text"; letterEl.style.backgroundClip="text";
+    ptsEl.textContent=ptsTxt;
+    if(arcEl) arcEl.style.strokeDashoffset=(circ*(1-sc/100)).toFixed(1);
   }
-  function letterFor(sc){
-    if (sc>=93) return "A"; if (sc>=85) return "B";
-    if (sc>=75) return "C"; if (sc>=65) return "D"; return "F";
-  }
-  function colorFor(sc){
-    if (sc>=85) return getComputedStyle(document.documentElement).getPropertyValue("--good");
-    if (sc>=70) return getComputedStyle(document.documentElement).getPropertyValue("--warn");
-    return getComputedStyle(document.documentElement).getPropertyValue("--bad");
-  }
+  const renderGrade = () => paintDial($("gLetter"),$("gPts"),$("arc"),DIAL,Math.round(score),Math.round(score)+" PTS");
 
-  function renderGrade(){
-    const sc = Math.max(0, Math.round(score));
-    $("gradeLetter").textContent = letterFor(sc);
-    $("gradeScore").textContent = sc + " pts";
-    const col = colorFor(sc).trim();
-    $("gradeLetter").style.color = col;
-    const arc = $("dialArc");
-    arc.style.stroke = col;
-    arc.style.strokeDashoffset = (CIRC * (1 - sc/100)).toFixed(1);
-  }
+  function setBar(el,pct,col){ el.style.width=clamp(pct,0,100)+"%"; if(col) el.style.background=col; }
 
-  function setBar(el, pct, col){
-    el.style.width = Math.min(100, Math.max(0, pct)) + "%";
-    if (col) el.style.background = col;
-  }
-
-  function logEvent(type, label, mag){
-    counts[type] = (counts[type]||0) + 1;
-    const list = $("evList");
-    const empty = list.querySelector(".empty");
-    if (empty) empty.remove();
-    const col = type==="corner" ? "var(--warn)" : "var(--bad)";
-    const div = document.createElement("div");
-    div.className = "ev";
+  function logEvent(type,label,mag){
+    counts[type]++;
+    const list=$("evList"); const e=list.querySelector(".empty"); if(e) e.remove();
+    const bg = type==="corner" ? "var(--warn)" : "var(--bad)";
+    const icon = type==="accel" ? '<path d="M5 12h14M13 6l6 6-6 6"/>' :
+                 type==="brake" ? '<path d="M8 8h8v8H8z"/>' :
+                                  '<path d="M6 18V9a6 6 0 0112 0"/><path d="M18 9l3 3M18 9l-3 3"/>';
+    const div=document.createElement("div"); div.className="ev";
     div.innerHTML =
-      '<span class="dot" style="background:'+col+'"></span>' +
-      '<span>'+label+' <b>'+mag.toFixed(2)+'g</b></span>' +
-      '<span class="t">'+fmtTime(Date.now()-startTime)+'</span>';
-    list.insertBefore(div, list.firstChild);
-    while (list.children.length > 40) list.removeChild(list.lastChild);
+      `<span class="chip" style="background:${bg}"><svg viewBox="0 0 24 24">${icon}</svg></span>`+
+      `<span>${label}</span>`+
+      `<span class="g" style="color:${bg}">${mag.toFixed(2)}g</span>`+
+      `<span class="t">${fmtTime(Date.now()-startTime)}</span>`;
+    list.insertBefore(div,list.firstChild);
+    while(list.children.length>40) list.removeChild(list.lastChild);
+    const tot=counts.accel+counts.brake+counts.corner;
+    $("evCnt").textContent=tot+(tot===1?" event":" events");
   }
 
   function onMotion(e){
-    const a = e.accelerationIncludingGravity || e.acceleration;
-    if (!a || a.x == null) return;
-    // Low-pass to estimate gravity vector, subtract for linear accel.
-    const alpha = 0.85;
-    gravity.x = alpha*gravity.x + (1-alpha)*a.x;
-    gravity.y = alpha*gravity.y + (1-alpha)*a.y;
-    gravity.z = alpha*gravity.z + (1-alpha)*a.z;
-    const lx = (a.x - gravity.x)/G;
-    const ly = (a.y - gravity.y)/G;
-    const lz = (a.z - gravity.z)/G;
+    const a=e.accelerationIncludingGravity||e.acceleration;
+    if(!a||a.x==null) return;
+    const al=0.85;
+    gravity.x=al*gravity.x+(1-al)*a.x; gravity.y=al*gravity.y+(1-al)*a.y; gravity.z=al*gravity.z+(1-al)*a.z;
+    const lx=(a.x-gravity.x)/G, ly=(a.y-gravity.y)/G, lz=(a.z-gravity.z)/G;
+    const lon=Math.abs(ly), lat=Math.abs(lx);
+    const horizMag=Math.sqrt(lx*lx+ly*ly);
+    peakG=Math.max(peakG,horizMag);
 
-    // Phone orientation-agnostic: horizontal plane magnitude split into
-    // longitudinal (drive axis) & lateral. Without heading we approximate:
-    // dominant horizontal axis = longitudinal, cross = lateral.
-    const lon = Math.abs(ly);          // fore/aft (portrait mount)
-    const lat = Math.abs(lx);          // side/side
-    const mag = Math.sqrt(lx*lx+ly*ly+lz*lz);
+    // G-ball (signed): lat -> x, forward accel -> up
+    const R=48;
+    const bx=clamp(lx/0.8,-1,1)*R, by=clamp(-ly/0.8,-1,1)*R;
+    const ball=$("gBall");
+    ball.style.transform=`translate(calc(-50% + ${bx}px), calc(-50% + ${by}px))`;
+    const heat = horizMag>0.5 ? "var(--bad)" : horizMag>0.3 ? "var(--warn)" : "var(--cy)";
+    ball.style.background=`radial-gradient(circle at 35% 30%,#eaffff,${heat})`;
+    ball.style.boxShadow=`0 0 14px 2px ${heat}, 0 0 0 1px rgba(255,255,255,.6) inset`;
+    $("gNow").textContent=horizMag.toFixed(2);
+    $("gPeak").textContent=peakG.toFixed(2)+" g peak";
 
-    $("lon").textContent = lon.toFixed(2);
-    $("lat").textContent = lat.toFixed(2);
-    setBar($("lonBar"), lon/0.8*100, lon>TH.brake ? "var(--bad)" : "var(--good)");
-    setBar($("latBar"), lat/0.8*100, lat>TH.corner ? "var(--warn)" : "var(--good)");
+    $("lon").textContent=lon.toFixed(2); $("lat").textContent=lat.toFixed(2);
+    setBar($("lonBar"),lon/0.8*100, lon>TH.brake?"linear-gradient(90deg,var(--warn),var(--bad))":"linear-gradient(90deg,var(--good),var(--cy))");
+    setBar($("latBar"),lat/0.8*100, lat>TH.corner?"linear-gradient(90deg,var(--warn),var(--bad))":"linear-gradient(90deg,var(--good),var(--cy))");
 
-    const now = Date.now();
-    // Jerk: rapid change in accel magnitude
-    const jerk = Math.abs(mag - lastAccelMag);
-    lastAccelMag = mag;
-
-    if (now - lastEventAt > 700){ // debounce distinct events
-      let penalized = false;
-      if (ly < -TH.brake){ score -= PENALTY.brake; logEvent("brake","Harsh braking", lon); penalized=true; }
-      else if (ly > TH.accel){ score -= PENALTY.accel; logEvent("accel","Harsh acceleration", lon); penalized=true; }
-      if (lat > TH.corner){ score -= PENALTY.corner; logEvent("corner","Hard cornering", lat); penalized=true; }
-      if (penalized) lastEventAt = now;
+    const now=Date.now();
+    const jerk=Math.abs(horizMag-lastMag); lastMag=horizMag;
+    if(now-lastEventAt>700){
+      let hit=false;
+      if(ly<-TH.brake){ score-=PEN.brake; logEvent("brake","Harsh braking",lon); hit=true; }
+      else if(ly>TH.accel){ score-=PEN.accel; logEvent("accel","Harsh acceleration",lon); hit=true; }
+      if(lat>TH.corner){ score-=PEN.corner; logEvent("corner","Hard cornering",lat); hit=true; }
+      if(hit) lastEventAt=now;
     }
-    if (jerk > 0.5) score -= PENALTY.jerk*0.25;
+    if(jerk>0.5) score-=PEN.jerk*0.25;
 
-    // Smoothness EMA: 100 when calm, drops with combined horizontal g.
-    const horiz = Math.min(1, Math.sqrt(lon*lon+lat*lat)/0.7);
-    smoothEMA = 0.92*smoothEMA + 0.08*(100 - horiz*100);
-    $("smooth").textContent = Math.round(smoothEMA);
-    setBar($("smoothBar"), smoothEMA, smoothEMA>70 ? "var(--good)" : smoothEMA>45 ? "var(--warn)" : "var(--bad)");
+    const h=Math.min(1,horizMag/0.7);
+    smoothEMA=0.92*smoothEMA+0.08*(100-h*100);
+    $("smooth").textContent=Math.round(smoothEMA);
+    setBar($("smoothBar"),smoothEMA, smoothEMA>70?"linear-gradient(90deg,var(--good),var(--cy))":smoothEMA>45?"var(--warn)":"var(--bad)");
 
-    // gentle recovery so a clean stretch nudges score back up
-    if (score < 100) score += 0.004;
-    score = Math.max(0, Math.min(100, score));
-    renderGrade();
-    updateStatus();
+    if(score<100) score+=0.004;
+    score=clamp(score,0,100);
+    renderGrade(); updateStatus();
   }
 
   function onGeo(pos){
-    const c = pos.coords;
-    let kmh = c.speed != null && c.speed >= 0 ? c.speed*3.6 : null;
-    if (kmh == null && lastPos){
-      const d = haversine(lastPos.coords, c);
-      const dt = (pos.timestamp - lastPos.timestamp)/1000;
-      if (dt > 0) kmh = (d/dt)*3.6;
+    const c=pos.coords;
+    let kmh = c.speed!=null && c.speed>=0 ? c.speed*3.6 : null;
+    if(kmh==null && lastPos){
+      const d=haversine(lastPos.coords,c), dt=(pos.timestamp-lastPos.timestamp)/1000;
+      if(dt>0) kmh=(d/dt)*3.6;
     }
-    if (lastPos){
-      distance += haversine(lastPos.coords, c);
-    }
-    lastPos = pos;
-    if (kmh != null){
-      kmh = Math.max(0, kmh);
-      topSpeed = Math.max(topSpeed, kmh);
-      $("speed").textContent = Math.round(kmh);
-      setBar($("speedBar"), kmh/160*100, "var(--accent)");
-    }
+    if(lastPos) distance+=haversine(lastPos.coords,c);
+    lastPos=pos;
+    if(kmh!=null){ kmh=Math.max(0,kmh); topSpeed=Math.max(topSpeed,kmh);
+      $("speed").textContent=Math.round(kmh); setBar($("speedBar"),kmh/160*100); }
   }
-
-  function haversine(a, b){
-    const R=6371000, toR=x=>x*Math.PI/180;
-    const dLat=toR(b.latitude-a.latitude), dLon=toR(b.longitude-a.longitude);
-    const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.latitude))*Math.cos(toR(b.latitude))*Math.sin(dLon/2)**2;
+  function haversine(a,b){
+    const R=6371000,toR=x=>x*Math.PI/180;
+    const dLat=toR(b.latitude-a.latitude),dLon=toR(b.longitude-a.longitude);
+    const s=Math.sin(dLat/2)**2+Math.cos(toR(a.latitude))*Math.cos(toR(b.latitude))*Math.sin(dLon/2)**2;
     return 2*R*Math.asin(Math.sqrt(s));
   }
-
+  function verdictFor(sc){
+    return sc>=93?"Silky smooth — expert control":sc>=85?"Good, composed driving":
+           sc>=75?"Fair — smooth it out a little":sc>=65?"Rough — ease your inputs":"Harsh — slow it down";
+  }
   function updateStatus(){
-    const sc = Math.round(score);
-    let txt, sub;
-    if (sc>=93){ txt="Excellent — smooth operator"; sub="Silky inputs. Keep it steady."; }
-    else if (sc>=85){ txt="Good driving"; sub="Minor bumps. Ease into brakes a touch."; }
-    else if (sc>=75){ txt="Fair — room to smooth out"; sub="Watch acceleration and cornering forces."; }
-    else if (sc>=65){ txt="Rough — aggressive inputs"; sub="Brake earlier, accelerate gradually."; }
-    else { txt="Harsh driving detected"; sub="Lots of hard events. Slow it down."; }
-    $("statusText").textContent = txt;
-    $("subText").textContent = sub;
+    const sc=Math.round(score); let t,s;
+    if(sc>=93){t="Excellent — smooth operator";s="Silky inputs. Keep it steady.";}
+    else if(sc>=85){t="Good driving";s="Minor bumps. Ease into the brakes.";}
+    else if(sc>=75){t="Fair — room to smooth out";s="Watch acceleration & cornering forces.";}
+    else if(sc>=65){t="Rough — aggressive inputs";s="Brake earlier, accelerate gradually.";}
+    else{t="Harsh driving detected";s="Lots of hard events — slow it down.";}
+    $("statusText").textContent=t; $("subText").textContent=s;
   }
 
   async function start(){
-    // iOS 13+ needs explicit motion permission from a user gesture.
     try{
-      if (typeof DeviceMotionEvent !== "undefined" &&
-          typeof DeviceMotionEvent.requestPermission === "function"){
-        const res = await DeviceMotionEvent.requestPermission();
-        if (res !== "granted"){ alert("Motion access denied — grading needs it."); return; }
+      if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+        const r=await DeviceMotionEvent.requestPermission();
+        if(r!=="granted"){ toast("Motion access is required to grade your drive"); return; }
       }
-    }catch(err){ /* non-iOS browsers throw; ignore */ }
-
-    running = true; score=100; smoothEMA=100; counts={accel:0,brake:0,corner:0};
-    startTime=Date.now(); topSpeed=0; distance=0; lastPos=null; lastEventAt=0;
-    $("evList").innerHTML = '<div class="empty">No events yet — smooth driving keeps this empty.</div>';
-    renderGrade(); updateStatus();
-
-    motionHandler = onMotion;
-    window.addEventListener("devicemotion", motionHandler, true);
-
-    if ("geolocation" in navigator){
-      geoId = navigator.geolocation.watchPosition(onGeo, ()=>{}, {
-        enableHighAccuracy:true, maximumAge:1000, timeout:8000
-      });
-    }
-    $("startBtn").classList.add("hidden");
-    $("stopBtn").classList.remove("hidden");
-    $("sensorPill").textContent = "sensors: live";
-    $("statusText").textContent = "Recording…";
+    }catch(_){}
+    if(demoMode){ startDemo(); return finishStartUI(); }
+    running=true; resetState();
+    motionHandler=onMotion; window.addEventListener("devicemotion",motionHandler,true);
+    if("geolocation" in navigator)
+      geoId=navigator.geolocation.watchPosition(onGeo,()=>{},{enableHighAccuracy:true,maximumAge:1000,timeout:8000});
+    finishStartUI();
+  }
+  function resetState(){
+    score=100; smoothEMA=100; counts={accel:0,brake:0,corner:0};
+    startTime=Date.now(); topSpeed=0; distance=0; peakG=0; lastPos=null; lastEventAt=0;
+    $("evList").innerHTML='<div class="empty">No events yet.<br>Smooth driving keeps this clean.</div>';
+    $("evCnt").textContent="0 events"; renderGrade(); updateStatus();
+  }
+  function finishStartUI(){
+    $("startBtn").classList.add("hidden"); $("stopBtn").classList.remove("hidden");
+    const p=$("livePill"); p.className="live "+(demoMode?"demo":"on"); $("liveTxt").textContent=demoMode?"demo":"recording";
+    $("statusText").textContent="Recording…";
   }
 
   function stop(){
     running=false;
-    if (motionHandler) window.removeEventListener("devicemotion", motionHandler, true);
-    if (geoId != null) navigator.geolocation.clearWatch(geoId);
-    if (demoTimer){ clearInterval(demoTimer); demoTimer=null; }
-    $("sensorPill").textContent = "sensors: idle";
-    // Summary
-    const sc = Math.max(0, Math.round(score));
-    $("sumLetter").textContent = letterFor(sc);
-    $("sumLetter").style.color = colorFor(sc).trim();
-    $("sumScore").textContent = sc + " / 100";
-    $("sumDur").textContent = fmtTime(Date.now()-startTime);
-    $("sumDist").textContent = (distance/1000).toFixed(1) + " km";
-    $("sumTop").textContent = Math.round(topSpeed) + " km/h";
-    $("sumAcc").textContent = counts.accel;
-    $("sumBrk").textContent = counts.brake;
-    $("sumCor").textContent = counts.corner;
-    $("summary").classList.remove("hidden");
+    if(motionHandler) window.removeEventListener("devicemotion",motionHandler,true);
+    if(geoId!=null) navigator.geolocation.clearWatch(geoId);
+    if(demoTimer){ clearInterval(demoTimer); demoTimer=null; }
+    $("livePill").className="live"; $("liveTxt").textContent="idle";
+    const sc=Math.round(score);
+    paintDial($("repLetter"),$("repPts"),$("repArc"),REP,sc,sc+" / 100");
+    $("repVerdict").textContent=verdictFor(sc);
+    $("rDur").textContent=fmtTime(Date.now()-startTime);
+    $("rDist").innerHTML=(distance/1000).toFixed(1)+' <small>km</small>';
+    $("rTop").innerHTML=Math.round(topSpeed)+' <small>km/h</small>';
+    $("rPeak").innerHTML=peakG.toFixed(2)+' <small>g</small>';
+    $("rAcc").textContent=counts.accel; $("rBrk").textContent=counts.brake;
+    lastReport={sc,dur:fmtTime(Date.now()-startTime),dist:(distance/1000).toFixed(1),
+                top:Math.round(topSpeed),peak:peakG.toFixed(2),acc:counts.accel,brk:counts.brake,cor:counts.corner};
+    $("report").classList.remove("hidden");
   }
-
-  function reset(){
-    $("summary").classList.add("hidden");
-    $("startBtn").classList.remove("hidden");
-    $("stopBtn").classList.add("hidden");
-    score=100; renderGrade();
-    $("statusText").textContent="Ready to drive";
-    $("subText").textContent="Tap Start, then mount your phone and drive.";
-    $("speed").textContent="0"; $("lon").textContent="0.00"; $("lat").textContent="0.00"; $("smooth").textContent="100";
+  function newTrip(){
+    $("report").classList.add("hidden");
+    $("startBtn").classList.remove("hidden"); $("stopBtn").classList.add("hidden");
+    score=100; renderGrade(); updateStatus();
+    $("speed").textContent="0"; $("lon").textContent="0.00"; $("lat").textContent="0.00";
+    $("smooth").textContent="100"; $("gNow").textContent="0.00"; $("gPeak").textContent="0.00 g peak";
     setBar($("speedBar"),0); setBar($("lonBar"),0); setBar($("latBar"),0); setBar($("smoothBar"),100);
+    $("gBall").style.transform="translate(-50%,-50%)";
   }
 
-  $("startBtn").addEventListener("click", start);
-  $("stopBtn").addEventListener("click", stop);
-  $("closeSum").addEventListener("click", reset);
+  /* ---------- Sharing: render branded scorecard ---------- */
+  let lastReport=null;
+  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
-  // Desktop fallback: no motion sensor -> demo simulation so the UI is testable.
-  window.addEventListener("load", () => {
+  function renderScorecard(){
+    const r=lastReport; const cv=$("cardCanvas"); const ctx=cv.getContext("2d");
+    const W=cv.width,H=cv.height;
+    // backdrop
+    const bg=ctx.createLinearGradient(0,0,W,H);
+    bg.addColorStop(0,"#0a1020"); bg.addColorStop(1,"#05070d");
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+    // glow blobs
+    const blob=(x,y,rad,col)=>{ const g=ctx.createRadialGradient(x,y,0,x,y,rad);
+      g.addColorStop(0,col); g.addColorStop(1,"rgba(0,0,0,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); };
+    blob(180,180,520,"rgba(30,99,255,.35)"); blob(900,1150,560,"rgba(139,92,246,.30)");
+    ctx.textAlign="left";
+    // brand
+    ctx.fillStyle="#eaf2ff"; ctx.font="700 46px 'Space Grotesk',sans-serif";
+    ctx.fillText("Drive",70,120);
+    const bw=ctx.measureText("Drive").width;
+    const bg2=ctx.createLinearGradient(70+bw,0,70+bw+140,0); bg2.addColorStop(0,"#38bdf8"); bg2.addColorStop(1,"#8b5cf6");
+    ctx.fillStyle=bg2; ctx.fillText("Grade",70+bw,120);
+    ctx.fillStyle="#5a6b8c"; ctx.font="500 24px 'Space Grotesk',sans-serif";
+    ctx.textAlign="right"; ctx.fillText(new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}),W-70,116);
+
+    // grade ring
+    const cx=W/2, cy=498, rad=210;
+    ctx.lineWidth=34; ctx.lineCap="round";
+    ctx.strokeStyle="rgba(255,255,255,.08)"; ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.stroke();
+    const [c1,c2]=gradeGrad(r.sc);
+    const ag=ctx.createLinearGradient(cx-rad,cy-rad,cx+rad,cy+rad); ag.addColorStop(0,c1); ag.addColorStop(1,c2);
+    ctx.strokeStyle=ag; ctx.beginPath();
+    ctx.arc(cx,cy,rad,-Math.PI/2, -Math.PI/2 + Math.PI*2*(r.sc/100)); ctx.stroke();
+    // big letter
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    const lg=ctx.createLinearGradient(cx-120,cy-120,cx+120,cy+120); lg.addColorStop(0,c1); lg.addColorStop(1,c2);
+    ctx.fillStyle=lg; ctx.font="700 230px 'Space Grotesk',sans-serif";
+    ctx.fillText(letterFor(r.sc),cx,cy+16);
+    ctx.fillStyle="#8ea2c4"; ctx.font="700 34px 'JetBrains Mono',monospace";
+    ctx.fillText(r.sc+" / 100",cx,cy+rad+70);
+    ctx.textBaseline="alphabetic";
+
+    // verdict
+    ctx.fillStyle="#eaf2ff"; ctx.font="600 40px 'Space Grotesk',sans-serif";
+    ctx.fillText(verdictFor(r.sc),cx,850);
+
+    // stat grid
+    const stats=[["DURATION",r.dur],["DISTANCE",r.dist+" km"],["TOP SPEED",r.top+" km/h"],
+                 ["PEAK G",r.peak+" g"],["HARSH BRAKE",String(r.brk)],["HARD CORNER",String(r.cor)]];
+    const gx=70, gy=920, gw=(W-140-2*24)/3, gh=150, gap=24;
+    ctx.textAlign="left";
+    stats.forEach((s,i)=>{
+      const col=i%3, row=Math.floor(i/3);
+      const x=gx+col*(gw+gap), y=gy+row*(gh+gap);
+      ctx.fillStyle="rgba(255,255,255,.045)"; roundRect(ctx,x,y,gw,gh,22); ctx.fill();
+      ctx.strokeStyle="rgba(140,170,220,.14)"; ctx.lineWidth=1.5; roundRect(ctx,x,y,gw,gh,22); ctx.stroke();
+      ctx.fillStyle="#5a6b8c"; ctx.font="600 20px 'Space Grotesk',sans-serif"; ctx.fillText(s[0],x+26,y+48);
+      ctx.fillStyle="#eaf2ff"; ctx.font="700 46px 'JetBrains Mono',monospace"; ctx.fillText(s[1],x+26,y+112);
+    });
+    // footer
+    ctx.textAlign="center"; ctx.fillStyle="#5a6b8c"; ctx.font="500 26px 'Space Grotesk',sans-serif";
+    ctx.fillText("japodevo.github.io/drivegrade",cx,H-70);
+    return cv;
+  }
+  const shareText = () => {
+    const r=lastReport;
+    return `I scored ${letterFor(r.sc)} (${r.sc}/100) on DriveGrade 🏎️\n`+
+           `${r.dist} km · top ${r.top} km/h · peak ${r.peak}g\n`+
+           `Grade your own drive → japodevo.github.io/drivegrade`;
+  };
+  function canvasBlob(){ return new Promise(res=>renderScorecard().toBlob(res,"image/png")); }
+
+  async function shareTrip(){
+    const blob=await canvasBlob();
+    const file=new File([blob],"drivegrade-score.png",{type:"image/png"});
+    const data={files:[file],title:"My DriveGrade Score",text:shareText()};
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share(data); return; }catch(err){ if(err&&err.name==="AbortError") return; }
+    }
+    if(navigator.share){ try{ await navigator.share({title:"My DriveGrade Score",text:shareText()}); return; }catch(_){} }
+    saveImage(blob); // last resort
+  }
+  async function saveImage(preBlob){
+    const blob=preBlob||await canvasBlob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download="drivegrade-score.png"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast("Scorecard image saved");
+  }
+  let toastT=null;
+  function toast(msg){
+    let el=$("toastEl"); if(!el){ el=document.createElement("div"); el.id="toastEl"; el.className="toast"; document.body.appendChild(el); }
+    el.textContent=msg; el.style.display="block"; clearTimeout(toastT);
+    toastT=setTimeout(()=>{ el.style.display="none"; },2200);
+  }
+
+  /* ---------- wire up ---------- */
+  let demoMode=false;
+  $("startBtn").addEventListener("click",start);
+  $("stopBtn").addEventListener("click",stop);
+  $("newBtn").addEventListener("click",newTrip);
+  $("shareBtn").addEventListener("click",shareTrip);
+  $("saveBtn").addEventListener("click",()=>saveImage());
+
+  function startDemo(){
+    demoMode=true; resetState();
+    demoTimer=setInterval(()=>{
+      const t=Date.now()/1000;
+      const fake={x:Math.sin(t*1.7)*3+(Math.random()-.5)*1.5, y:Math.cos(t*1.1)*3.5+(Math.random()-.5), z:9.8};
+      onMotion({accelerationIncludingGravity:fake});
+      onGeo({coords:{latitude:0,longitude:0,speed:Math.abs(Math.sin(t*0.3))*30},timestamp:Date.now()});
+    },110);
+  }
+
+  window.addEventListener("load",()=>{
     renderGrade();
-    let sawMotion=false;
-    const probe = () => { sawMotion=true; window.removeEventListener("devicemotion", probe); };
-    window.addEventListener("devicemotion", probe);
-    setTimeout(() => {
-      if (!sawMotion && !("ontouchstart" in window)){
-        $("subText").innerHTML = "No motion sensor detected (desktop). <b>Start</b> runs a demo simulation.";
-        $("startBtn").addEventListener("click", () => {
-          if (demoTimer) return;
-          $("sensorPill").textContent="sensors: demo";
-          demoTimer=setInterval(()=>{
-            const t=Date.now()/1000;
-            const fake={ x:Math.sin(t*1.7)*3+ (Math.random()-.5), y:Math.cos(t*1.1)*3.5, z:9.8 };
-            onMotion({accelerationIncludingGravity:fake});
-            onGeo({coords:{latitude:0,longitude:0,speed:Math.abs(Math.sin(t*0.3))*30},timestamp:Date.now()});
-          }, 120);
-        }, {once:false});
+    let saw=false; const probe=()=>{saw=true; window.removeEventListener("devicemotion",probe);};
+    window.addEventListener("devicemotion",probe);
+    setTimeout(()=>{
+      if(!saw && !("ontouchstart" in window)){
+        demoMode=true;
+        $("subText").innerHTML='No motion sensor found (desktop) — <b>Start</b> runs a live demo simulation.';
       }
-    }, 800);
+    },800);
   });
 })();
 </script>
